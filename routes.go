@@ -124,7 +124,9 @@ func prKills(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if param != "" {
 		limit, err = strconv.Atoi(param)
-		checkErr(err)
+		if err != nil || limit < 1 {
+			limit = 1
+		}
 		if limit >= 100 {
 			limit = 100
 		}
