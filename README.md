@@ -1,6 +1,6 @@
-# API
+# GOWEB
 
-API is a Go binary for web API calls interacting with a local SQLite Database.
+GOWEB is a Go binary for web API calls interacting with a local SQLite Database.
 
 ## Installation
 
