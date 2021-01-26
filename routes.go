@@ -13,12 +13,24 @@ import (
 )
 
 func printRoutes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "/players\n")
-	fmt.Fprintf(w, "/kills\n")
-	fmt.Fprintf(w, "/pr/{player}/kills\n")
-	fmt.Fprintf(w, "/pr/{player}/kills?limit=5\n")
+	//w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	//w.WriteHeader(http.StatusOK)
+	/*
+		fmt.Fprintf(w, "/players\n")
+		fmt.Fprintf(w, "/kills\n")
+		fmt.Fprintf(w, "/pr/{player}/kills\n")
+		fmt.Fprintf(w, "/pr/{player}/kills?limit=5\n") */
+
+	var plist []string
+	plist = append(plist, "/players")
+	plist = append(plist, "/kills")
+	plist = append(plist, "/pr/{player}/kills")
+	plist = append(plist, "/pr/{player}/kills?limit=5")
+	plist = append(plist, "/pr/{player}/kd")
+	w.Header().Set("Content-Type", "application/json")
+	jsonData := json.NewEncoder(w)
+	jsonData.SetIndent("", "    ")
+	jsonData.Encode(plist)
 }
 
 func checkErr(err error) {
@@ -118,9 +130,10 @@ func players(w http.ResponseWriter, r *http.Request) {
 		checkErr(err)
 		stats = append(stats, player)
 	}
-	jsonData, err := json.MarshalIndent(stats, "", "    ")
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(jsonData))
+	jsonData := json.NewEncoder(w)
+	jsonData.SetIndent("", "    ")
+	jsonData.Encode(stats)
 }
 
 func mostKills(w http.ResponseWriter, r *http.Request) {
@@ -155,9 +168,10 @@ func mostKills(w http.ResponseWriter, r *http.Request) {
 		stats = append(stats, stat)
 		checkErr(err)
 	}
-	jsonData, err := json.MarshalIndent(stats, "", "    ")
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(jsonData))
+	jsonData := json.NewEncoder(w)
+	jsonData.SetIndent("", "    ")
+	jsonData.Encode(stats)
 }
 
 func prKills(w http.ResponseWriter, r *http.Request) {
@@ -197,17 +211,17 @@ func prKills(w http.ResponseWriter, r *http.Request) {
 		checkErr(err)
 	}
 
-	jsonData, err := json.MarshalIndent(stats, "", "    ")
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(jsonData))
+	jsonData := json.NewEncoder(w)
+	jsonData.SetIndent("", "    ")
+	jsonData.Encode(stats)
 }
 
 /*
 func prKD(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	queries := mux.Vars(r)
-    var stats []stat
-    q := `
+	var stats []stat
+	q := `
     SELECT
         date_key, game_mode_sub, kills
     FROM
@@ -217,22 +231,25 @@ func prKD(w http.ResponseWriter, r *http.Request) {
     ORDER BY
         kills DESC LIMIT 10;
         `
-    lim := 10
+	lim := 10
 
-    db, err := sql.Open("sqlite3", "./data.sqlite")
-    checkErr(err)
-    defer db.Close()
+	db, err := sql.Open("sqlite3", "./data.sqlite")
+	checkErr(err)
+	defer db.Close()
 
-    rows, err := db.Query(q, lim)
-    checkErr(err)
-    defer rows.Close()
+	rows, err := db.Query(q, lim)
+	checkErr(err)
+	defer rows.Close()
 
-    for rows.Next() {
-        stat := stat{}
-        err = rows.Scan(&stat.Date, &stat.Mode, &stat.Kills)
-        stats = append(stats, stat)
-        checkErr(err)
-    }
+	for rows.Next() {
+		stat := stat{}
+		err = rows.Scan(&stat.Date, &stat.Mode, &stat.Kills)
+		stats = append(stats, stat)
+		checkErr(err)
+	}
 
-    json.NewEncoder(w).Encode(stats)
+	w.Header().Set("Content-Type", "application/json")
+	jsonData := json.NewEncoder(w)
+	jsonData.SetIndent("", "    ")
+	jsonData.Encode(stats)
 } */
