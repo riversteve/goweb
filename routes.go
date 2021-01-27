@@ -12,6 +12,12 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+func jsonWrite(w http.ResponseWriter, r *http.Request, data []string) {
+	w.Header().Set("Content-Type", "application/json")
+	jsonData := json.NewEncoder(w)
+	jsonData.SetIndent("", "  ")
+	jsonData.Encode(data)
+}
 func printRoutes(w http.ResponseWriter, r *http.Request) {
 	//w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	//w.WriteHeader(http.StatusOK)
@@ -27,10 +33,7 @@ func printRoutes(w http.ResponseWriter, r *http.Request) {
 	plist = append(plist, "/pr/{player}/kills")
 	plist = append(plist, "/pr/{player}/kills?limit=5")
 	plist = append(plist, "/pr/{player}/kd")
-	w.Header().Set("Content-Type", "application/json")
-	jsonData := json.NewEncoder(w)
-	jsonData.SetIndent("", "    ")
-	jsonData.Encode(plist)
+	jsonWrite(w, r, plist)
 }
 
 func checkErr(err error) {
@@ -130,10 +133,7 @@ func players(w http.ResponseWriter, r *http.Request) {
 		checkErr(err)
 		stats = append(stats, player)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	jsonData := json.NewEncoder(w)
-	jsonData.SetIndent("", "    ")
-	jsonData.Encode(stats)
+	jsonWrite(w, r, stats)
 }
 
 func mostKills(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +168,7 @@ func mostKills(w http.ResponseWriter, r *http.Request) {
 		stats = append(stats, stat)
 		checkErr(err)
 	}
+	//jsonWrite(w, r, stats)
 	w.Header().Set("Content-Type", "application/json")
 	jsonData := json.NewEncoder(w)
 	jsonData.SetIndent("", "    ")
