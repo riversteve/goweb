@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,21 +11,14 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func jsonWrite(w http.ResponseWriter, r *http.Request, data []string) {
+func jsonWrite(w http.ResponseWriter, r *http.Request, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	jsonData := json.NewEncoder(w)
 	jsonData.SetIndent("", "  ")
 	jsonData.Encode(data)
 }
-func printRoutes(w http.ResponseWriter, r *http.Request) {
-	//w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-	//w.WriteHeader(http.StatusOK)
-	/*
-		fmt.Fprintf(w, "/players\n")
-		fmt.Fprintf(w, "/kills\n")
-		fmt.Fprintf(w, "/pr/{player}/kills\n")
-		fmt.Fprintf(w, "/pr/{player}/kills?limit=5\n") */
 
+func printRoutes(w http.ResponseWriter, r *http.Request) {
 	var plist []string
 	plist = append(plist, "/players")
 	plist = append(plist, "/kills")
@@ -83,37 +75,6 @@ func delete(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message": "delete called"}`))
 }
 
-func params(w http.ResponseWriter, r *http.Request) {
-	pathParams := mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-
-	userID := -1
-	var err error
-	if val, ok := pathParams["userID"]; ok {
-		userID, err = strconv.Atoi(val)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"message": "need a number"}`))
-			return
-		}
-	}
-
-	commentID := -1
-	if val, ok := pathParams["commentID"]; ok {
-		commentID, err = strconv.Atoi(val)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"message": "need a number"}`))
-			return
-		}
-	}
-
-	query := r.URL.Query()
-	location := query.Get("location")
-
-	w.Write([]byte(fmt.Sprintf(`{"userID": %d, "commentID": %d, "location": "%s" }`, userID, commentID, location)))
-}
-
 func players(w http.ResponseWriter, r *http.Request) {
 	var stats []string
 	q := `
@@ -137,12 +98,10 @@ func players(w http.ResponseWriter, r *http.Request) {
 }
 
 func mostKills(w http.ResponseWriter, r *http.Request) {
-	// go run --tags json1 web.go
-	// https://github.com/mattn/go-sqlite3/issues/710
-	var stats []stat
+	var stats []vwStats
 	q := `
     SELECT 
-        date_key, game_mode_sub, player_id, kills 
+		player_id, date_key, game_mode_sub, kdRatio, kills, deaths, headshots, teamPlacement 
     FROM 
         vw_stats_wz 
     WHERE 
@@ -163,16 +122,12 @@ func mostKills(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	for rows.Next() {
-		stat := stat{}
-		err = rows.Scan(&stat.Date, &stat.Mode, &stat.Player, &stat.Kills)
+		stat := vwStats{}
+		err = rows.Scan(&stat.Player, &stat.Date, &stat.Mode, &stat.KD, &stat.Kills, &stat.Deaths, &stat.Headshots, &stat.Placement)
 		stats = append(stats, stat)
 		checkErr(err)
 	}
-	//jsonWrite(w, r, stats)
-	w.Header().Set("Content-Type", "application/json")
-	jsonData := json.NewEncoder(w)
-	jsonData.SetIndent("", "    ")
-	jsonData.Encode(stats)
+	jsonWrite(w, r, stats)
 }
 
 func prKills(w http.ResponseWriter, r *http.Request) {
@@ -186,10 +141,10 @@ func prKills(w http.ResponseWriter, r *http.Request) {
 	param := query.Get("limit")
 	limit := checkLimit(param)
 
-	var stats []stat
+	var stats []vwStats
 	q := `
     SELECT 
-        player_id, date_key, game_mode_sub, kills 
+        player_id, date_key, game_mode_sub, kdRatio, kills, deaths, headshots, teamPlacement 
     FROM 
         vw_stats_wz 
     WHERE 
@@ -206,51 +161,49 @@ func prKills(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	for rows.Next() {
-		stat := stat{}
-		err = rows.Scan(&stat.Player, &stat.Date, &stat.Mode, &stat.Kills)
+		stat := vwStats{}
+		err = rows.Scan(&stat.Player, &stat.Date, &stat.Mode, &stat.KD, &stat.Kills, &stat.Deaths, &stat.Headshots, &stat.Placement)
 		stats = append(stats, stat)
 		checkErr(err)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	jsonData := json.NewEncoder(w)
-	jsonData.SetIndent("", "    ")
-	jsonData.Encode(stats)
+	jsonWrite(w, r, stats)
 }
 
-/*
 func prKD(w http.ResponseWriter, r *http.Request) {
-	queries := mux.Vars(r)
-	var stats []stat
-	q := `
-    SELECT
-        date_key, game_mode_sub, kills
-    FROM
-        vw_stats_wz
-    WHERE
-        player_id = '?'
-    ORDER BY
-        kills DESC LIMIT 10;
-        `
-	lim := 10
+	pathParams := mux.Vars(r)
+	var userName string
+	if val, ok := pathParams["userName"]; ok {
+		userName = val
+		//needs validation
+	}
+	query := r.URL.Query()
+	param := query.Get("limit")
+	limit := checkLimit(param)
 
+	var stats []vwStats
+	q := `
+    SELECT 
+		player_id, date_key, game_mode_sub, kdRatio, kills, deaths, headshots, teamPlacement 
+    FROM 
+        vw_stats_wz 
+    WHERE 
+        player_id = '` + userName + `'
+    ORDER BY 
+        kills DESC LIMIT ?;
+        `
 	db, err := sql.Open("sqlite3", "./data.sqlite")
 	checkErr(err)
 	defer db.Close()
 
-	rows, err := db.Query(q, lim)
+	rows, err := db.Query(q, limit)
 	checkErr(err)
 	defer rows.Close()
 
 	for rows.Next() {
-		stat := stat{}
-		err = rows.Scan(&stat.Date, &stat.Mode, &stat.Kills)
+		stat := vwStats{}
+		err = rows.Scan(&stat.Player, &stat.Date, &stat.Mode, &stat.KD, &stat.Kills, &stat.Deaths, &stat.Headshots, &stat.Placement)
 		stats = append(stats, stat)
 		checkErr(err)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	jsonData := json.NewEncoder(w)
-	jsonData.SetIndent("", "    ")
-	jsonData.Encode(stats)
-} */
+	jsonWrite(w, r, stats)
+}
