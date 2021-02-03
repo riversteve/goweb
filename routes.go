@@ -101,7 +101,7 @@ func mostKills(w http.ResponseWriter, r *http.Request) {
 	var stats []vwStats
 	q := `
     SELECT 
-		player_id, date_key, game_mode_sub, kdRatio, kills, deaths, headshots, teamPlacement 
+	player_id, date_key, game_mode_sub, kdRatio, kills, deaths, headshots, teamPlacement 
     FROM 
         vw_stats_wz 
     WHERE 
